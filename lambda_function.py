@@ -115,6 +115,7 @@ def lambda_handler(event, context):
     for record in event['Records']:
         print("record: {}".format(record))
         bucket = record['s3']['bucket']['name']
+        upload_bucket = "startlens-media-resized"
         # 引数からS3のKey(フォルダ名/ファイル名)を抽出
         key = unquote_plus(record['s3']['object']['key'])
         splitkey = key.split('/')
@@ -129,9 +130,8 @@ def lambda_handler(event, context):
         s3_client.download_file(bucket, key, download_path)
         # Exif削除と回転処理
         remove_exif(download_path, upload_path)
-        # resize_image(download_path, upload_path)
-        # 処理後のファイルをS3にアップロード
-        s3_client.upload_file(upload_path, bucket, splitkey)
+        # 処理後のファイルをS3にアップロード（ダウンロード元とバケットを変更する）
+        s3_client.upload_file(upload_path, upload_bucket, splitkey)
 
 
 if __name__ == "__main__":
