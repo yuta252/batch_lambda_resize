@@ -118,9 +118,7 @@ def lambda_handler(event, context):
         upload_bucket = "startlens-media-resized"
         # 引数からS3のKey(フォルダ名/ファイル名)を抽出
         key = unquote_plus(record['s3']['object']['key'])
-        splitkey = key.split('/')
         # thumbnails/ファイル名のパスを作成
-        # newkey = key.replace(splitkey[0], 'thumbnails')
         tmpkey = key.replace('/', '')
         # S3からダウンロードしたファイルの保存先を設定
         download_path = '/tmp/{}{}'.format(uuid.uuid4(), tmpkey)
@@ -131,7 +129,7 @@ def lambda_handler(event, context):
         # Exif削除と回転処理
         remove_exif(download_path, upload_path)
         # 処理後のファイルをS3にアップロード（ダウンロード元とバケットを変更する）
-        s3_client.upload_file(upload_path, upload_bucket, splitkey)
+        s3_client.upload_file(upload_path, upload_bucket, key)
 
 
 if __name__ == "__main__":
