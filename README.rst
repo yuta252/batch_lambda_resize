@@ -8,33 +8,26 @@ Lambda関数によるS3アップロード画像のExif削除とリサイズ
 特にモバイル端末で撮影した画像をStartlens（Web画面）から直接アップロードしてしまうとExif情報が付与されたままアップロードされてしまう。
 このExif情報を付与したまま学習してしまうと画像の回転が考慮されず学習の精度が下がってしまうためバッチ処理が必要である。
 
-ツールのバージョン
+機能
+====
+S3の特定のバケットにアップロードされたjpg画像をprefixをもとにLambdaで自動検知し、画像のExif情報の削除と正しい方向への回転及び画像を(600px, 600px)でリサイズする
+
+Lambdaの実行環境
 ==============
-:Python:    3.6.10
-:pip:       20.1.1
+:ランタイム:    python3.6
+:メモリ:       512MB
 
 
-インストールと起動方法
-==================
-リポジトリーからコードを取得し、venv環境に依存ライブラリをインストールする
+Lambdaパッケージの作成
+===================
+Lambda関数を作成するためには①AWS Lambdaコンソールから設計図を利用して直接作成する方法②Lambda関数をパッケージ化したzipファイルをアップロードする方法、の2種類がある。
+今回は外部ライブラリPillowを利用するため②の方法で進める。ただし、ローカルで作業する場合にPillowをインストールするとLambda（Amazon Linux）で動作しないため、Dockerを利用するかEC2上でパッケージ化の作業を行う。
+以下はEC2でパッケージ化する場合の手順
 
-    #. $ git clone https://github.com/
-    #. $ cd startlens
-    #. $ python3.6 -m venv venv
-    #. $ source venv/bin/activate
-    #. (venv) $ pip install -r requirements/test.txt
-    #. (venv) $ python3.6 manage.py runserver --settings=config.settings.test
+:EC2 OS:      Ubuntu18.04
 
-
-AWSでの環境設定と起動方法
-======================
-:Ubuntu:    18.04
-:インスタンスタイプ:    t2.micro
-
-EC2インスタンス内での実行手順
 
     #. sudo apt -y update
-    #. sudo apt -y upgrade
     #. sudo apt -y install build-essential python3-dev libsqlite3-dev libreadline6-dev libgdbm-dev zlib1g-dev libbz2-dev sqlite3 tk-dev zip libssl-dev
     #. wget https://www.python.org/ftp/python/3.6.10/Python-3.6.10.tgz
     #. tar xf Python-3.6.10.tgz
@@ -44,72 +37,26 @@ EC2インスタンス内での実行手順
     #. sudo make install
     #. sudo ln -s /opt/python3.6.10/bin/python3.6 /usr/local/bin/python3.6
     #. sudo ln -s /opt/python3.6.10/bin/pip3.6 /usr/local/bin/pip
+    #. python3.6 -m venv venv
+    #. source venv/bin/activate
+    #. mkdir ~/work & cd work
+    #. git clone https://github.com/yuta252/batch_lambda_resize.git
+    #. pip install -r requirements.txt
+    #. cd $VIRTUAL_ENV/lib/python3.6/site-packages
+    #. zip -r9 $(OLDPWD)/lambda_function.zip .
+    #. cd ${OLDPWD}
+    #. zip -g lambda_function.zip lambda_function.py
+    #. scp -i secretkey.pem -r ubuntu@[IP Address]:/home/ubuntu/work/batch_lambda_resize/lambda_function.zip [local directory path]
 
 
-RDSの構築
-========
-:DB:    8.0.19
+Lambda関数の作成
+===============
+AWSコンソール上でLambda関数を作成する手順を下記に記載する。
 
-RDSを作成しEC2インスタンスでの実行手順
-
-    * sudo apt -y install mysql-client default-libmysqlclient-dev
-
-データベースの接続確認
-
-    * mysql -h { database endpoint } -u rootname --password="password"
-
-データベーステーブルの作成
-
-    * sql> CREATE DATABASE startlens
-
-
-ソースコードのデプロイ
-===================
-EC2のvenv仮想環境で下記を実行
-
-    * pip install -r requirements/test.txt
-    * pip install wheel mysqlclient django-environ django-storages boto3
-    * mkdir /var/log/startlens_django
-    * BASE_DIRディレクトリに .envファイルを作成し config.setting.test で読み込む環境変数を定義する
-    * S3の作成とS3fullaccessユーザーをIAMで作成して .envにEC2からS3へアクセスするためのアクセスキーとシークレットキーを設定する
-
-
-Djangoの設定
-===========
-管理者アカウトを作成する
-
-    * python manage.py create superuser
-
-静的ファイルの配置
-
-    * sudo mkdir /var/www
-    * sudo mkdir /var/www/startlens_django
-    * sudo chown ubuntu:www-data /var/www/startlens_django
-    * python manage.py collectstatic --noinput
-
-
-アプリケーションサーバーとリバースプロキシの設定
-=========================================
-:nginx:    1.14.0
-:gunicorn:    20.0.4
-
-アプリケーションサーバーとしてgunicornをセットアップする
-
-    * pip install gunicorn
-    * gunicorn --daemon --bind=0.0.0.0:8000 config.wsgi
-
-デーモンで起動しているgunicornを停止する場合
-
-    * sudo lsof -i:8000
-    * sudo kill -9 PID
-
-リバースプロキシとしてnginxのインストールと設定
-
-    * sudo apt install -y nginx
-    * sudo systemctl enable nginx
-    * mv config/startlens /etc/nginx/site-available/startlens
-    * sudo ln -s /etc/nginx/sites-available/startlens /etc/nginx/sites-enabled/
-    * sudo unlink /etc/nginx/site-enabled/default
-    * sudo nginx -t
-    * sudo systemctl relaod nginx
-
+    #. LambdaからS3にアクセスするための実行権限をIAMロールを付与する。IAMからロールを作成し「AWSLambdaBasicExcutionRole」「AmazonS3FullAccess」のポリシーをアタッチする。S3へのポリシーはセキュリティー上の問題があるため本番環境では適切なポリシーに変更する。
+    #. Lambdaコンソールから「関数の作成」→「一から作成」を押下し、「Python3.6」ランタイムと上記で作成したIAMロールを指定し、「関数の作成」を押下
+    #. トリガーの追加からS3にファイルアップロード時にLambda関数を実行するための設定を行う。S3バケット（ダウンロード先）、イベントタイプを「すべてのオブジェクト作成イベント」、プレフィックスを「postpic/」、サフィックスを「.jpg」に設定する。
+    　　この時にダウンロード先のS3バケットとアップロード先のS3バケットがLambda_function.pyのコード上同じ場合、無限ループでLambda関数が実行される可能性があるので注意する。
+    #. EC2で作成したパッケージlambda_function.zipをアップロードする
+    #. テストイベントの設定から新しいテストイベントを作成し、Amazon S3 PutのRecords.s3.bucket.name, Records.s3.arn, Records.s3.object.keyにバケット名とkeyを設定する
+    #. 設定したバケットとKeyにファイルをアップロードし、Lambdaコンソールからテストを押下
