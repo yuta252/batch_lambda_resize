@@ -27,6 +27,7 @@ Lambda関数を作成するためには①AWS Lambdaコンソールから設計�
 :EC2 OS:      Ubuntu18.04
 
 
+
     #. sudo apt -y update
     #. sudo apt -y install build-essential python3-dev libsqlite3-dev libreadline6-dev libgdbm-dev zlib1g-dev libbz2-dev sqlite3 tk-dev zip libssl-dev
     #. wget https://www.python.org/ftp/python/3.6.10/Python-3.6.10.tgz
@@ -49,14 +50,14 @@ Lambda関数を作成するためには①AWS Lambdaコンソールから設計�
     #. scp -i secretkey.pem -r ubuntu@[IP Address]:/home/ubuntu/work/batch_lambda_resize/lambda_function.zip [local directory path]
 
 
+
 Lambda関数の作成
 ===============
 AWSコンソール上でLambda関数を作成する手順を下記に記載する。
 
     #. LambdaからS3にアクセスするための実行権限をIAMロールを付与する。IAMからロールを作成し「AWSLambdaBasicExcutionRole」「AmazonS3FullAccess」のポリシーをアタッチする。S3へのポリシーはセキュリティー上の問題があるため本番環境では適切なポリシーに変更する。
     #. Lambdaコンソールから「関数の作成」→「一から作成」を押下し、「Python3.6」ランタイムと上記で作成したIAMロールを指定し、「関数の作成」を押下
-    #. トリガーの追加からS3にファイルアップロード時にLambda関数を実行するための設定を行う。S3バケット（ダウンロード先）、イベントタイプを「すべてのオブジェクト作成イベント」、プレフィックスを「postpic/」、サフィックスを「.jpg」に設定する。
-    　　この時にダウンロード先のS3バケットとアップロード先のS3バケットがLambda_function.pyのコード上同じ場合、無限ループでLambda関数が実行される可能性があるので注意する。
+    #. トリガーの追加からS3にファイルアップロード時にLambda関数を実行するための設定を行う。S3バケット（ダウンロード先）、イベントタイプを「すべてのオブジェクト作成イベント」、プレフィックスを「postpic/」、サフィックスを「.jpg」に設定する。この時にダウンロード先のS3バケットとアップロード先のS3バケットがLambda_function.pyのコード上同じ場合、無限ループでLambda関数が実行される可能性があるので注意する。
     #. EC2で作成したパッケージlambda_function.zipをアップロードする
     #. テストイベントの設定から新しいテストイベントを作成し、Amazon S3 PutのRecords.s3.bucket.name, Records.s3.arn, Records.s3.object.keyにバケット名とkeyを設定する
     #. 設定したバケットとKeyにファイルをアップロードし、Lambdaコンソールからテストを押下
