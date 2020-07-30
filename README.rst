@@ -20,12 +20,12 @@ Lambdaの実行環境
 
 Lambdaパッケージの作成
 ===================
+:EC2 OS:      Ubuntu18.04
+
+
 Lambda関数を作成するためには①AWS Lambdaコンソールから設計図を利用して直接作成する方法②Lambda関数をパッケージ化したzipファイルをアップロードする方法、の2種類がある。
 今回は外部ライブラリPillowを利用するため②の方法で進める。ただし、ローカルで作業する場合にPillowをインストールするとLambda（Amazon Linux）で動作しないため、Dockerを利用するかEC2上でパッケージ化の作業を行う。
 以下はEC2でパッケージ化する場合の手順
-
-:EC2 OS:      Ubuntu18.04
-
 
 
     #. sudo apt -y update
